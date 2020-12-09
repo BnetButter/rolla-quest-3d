@@ -3,7 +3,7 @@
 <img src="joke-anti-virus.jpg" alt="drawing" width="200"/>
 
 ### Intro
-[Cinematic Version](https://starwarsintrocreator.kassellabs.io/#!/BM6he7tpEwCMCXpqlGGs)
+[Cinematic Version](https://starwarsintrocreator.kassellabs.io/#!/CMO5WpFCuliKL_tP28-8)
 
 It has been nine months since the virulent disease, Continuous Online Videoconference Interdependence Delusions (COVID), has ravaged Missouri S&T.
 The infectious agent behind this insidious disease is a bio-induced transmissible meme agent.
@@ -25,6 +25,8 @@ Help George tear off his mask, escape the Zoom, and return to the human world!
 
 ### Playing the Game
 You can play the game by running `python3 rolla_quest.py`.  
+It is currenly playable, so give it a try now, before you get started!
+
 The gameplay is as follows:
 1. Search for a USB disk with the experimental data needed to create a meme-drive vaccine stored on it (behind Norwood Hall, TODO shrenk).
 2. Pass the drive to the 0racle, to see if you can stop the bio-memetic disease, and escape this virtual box (behind the CS building).
@@ -82,7 +84,7 @@ They are keen on spreading their message publically, and are not particularly fo
 For these reasons, the AntiCiphers will pursue you, George the masked bandit, until they are within a radius of 3 spaces from you, in which case their behavior will be analogous to that of the PoliceDrones when they enter the range of the 0racle, random.
 
 #### 0racle 
-The 0racle is an a wise, enignatic, and elusive character, and she changes her strategy over time, for example when George takes a while to show up, and even more so when the PoliceDroness start to approach her.
+The 0racle is a wise, enignatic, and elusive character, and she changes her strategy over time, for example when George takes a while to show up, when the PoliceDroness start to approach her.
 The longer George takes to show up and deliver the meme-drive vaccine, the more nervous the 0racle gets.
 The 0racle is too strategic to move toward or away from anything in particular, so she will move randomly, but according to the following logic:
 
@@ -97,10 +99,11 @@ Player Moves Made | 0racle Movement Frequency
 300+ | Once every move
 
 Once every "x" moves refers to the number of times the `0racle`'s `move` function is called.
-For example, if the dealer is to move once every 5 moves, the function should return the empty string (denoting no movement) the first 4 out of 5 times, and a random direction the fifth time.
-Naturally, this erratic movement will make the dealer harder for George to track down.
-Fortunately, the dealer has a pager that lets George know which direction to go in (bottom right of the display).
+For example, if the 0racle is to move once every 5 moves, the function should return the empty string (denoting no movement) the first 4 out of 5 times, and a random direction the fifth time.
+Naturally, this erratic movement will make the 0racle harder for George to track down.
+Fortunately, the 0racle has a pager that lets George know which direction to go in (bottom right of the display).
 Complete the `0racle`'s `get_direction` function to return the appropriate cardinal/intercardinal direction (N, NE, E, etc) so the player knows which direction to go.  
 
 All of the other entities have require some sort of tracking logic, so you will need to implement a `_move_to_follow` function in the `Entity` class that determines the move to be made if one wishes to follow/chase another `Entity`.
+
 More details in `characters.py`.
