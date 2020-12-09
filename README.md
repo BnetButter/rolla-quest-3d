@@ -112,7 +112,11 @@ More details in `characters.py`.
 
 ### Code structure
 Recall the class diagrams from the lectures on classes and OOP.
-The class diagram for this game is generated as follows:
+The package and class diagrams for this game is generated as follows:
 `pyreverse -o svg *.py`
 
-![](class_diagram.svg)
+The basic structure of files:
+![packages](packages.svg)
+
+And a detailed class diagram:
+![clases](class_diagram.svg)
