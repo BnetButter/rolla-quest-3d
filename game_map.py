@@ -280,7 +280,7 @@ class Map:
         exposure_str = "Your exposure factor is {:.2f}".format(
             self.player.exposure_factor
         )
-        oracle_str = "Direction to TP is {}".format(
+        oracle_str = "Direction to The0racle is {}".format(
             self.oracle.get_direction(self.player)
         )
         padding = " " * (self.chunk_cols - len(exposure_str) - len(oracle_str))
