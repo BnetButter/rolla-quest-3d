@@ -116,7 +116,9 @@ The package and class diagrams for this game is generated as follows:
 `pyreverse -o svg *.py`
 
 The basic structure of files:
+
 ![packages](packages.svg)
 
 And a detailed class diagram:
-![clases](class_diagram.svg)
+
+![classes](classes.svg)
