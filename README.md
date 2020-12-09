@@ -5,6 +5,8 @@
 ### Intro
 [Cinematic Version](https://starwarsintrocreator.kassellabs.io/#!/CMO5WpFCuliKL_tP28-8)
 
+[My video introduction to the project]()
+
 It has been nine months since the virulent disease, Continuous Online Videoconference Interdependence Delusions (COVID), has ravaged Missouri S&T.
 The infectious agent behind this insidious disease is a bio-induced transmissible meme agent.
 At first, this infection caused humorous and absurd behavior, like hoarding toilet paper, blaming 5G for viral infections, injecting chemical disinfectants, and popping malaria pills, but now symptoms have become much more grave, and COVID is no longer funny...
@@ -107,3 +109,10 @@ Complete the `0racle`'s `get_direction` function to return the appropriate cardi
 All of the other entities have require some sort of tracking logic, so you will need to implement a `_move_to_follow` function in the `Entity` class that determines the move to be made if one wishes to follow/chase another `Entity`.
 
 More details in `characters.py`.
+
+### Code structure
+Recall the class diagrams from the lectures on classes and OOP.
+The class diagram for this game is generated as follows:
+`pyreverse -o svg *.py`
+
+![](class_diagram.svg)
