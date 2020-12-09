@@ -5,7 +5,7 @@
 ### Intro
 [Cinematic Version](https://starwarsintrocreator.kassellabs.io/#!/CMO5WpFCuliKL_tP28-8)
 
-[My video introduction to the project]()
+[My video introduction to the project](https://vimeo.com/488849820)
 
 It has been nine months since the virulent disease, Continuous Online Videoconference Interdependence Delusions (COVID), has ravaged Missouri S&T.
 The infectious agent behind this insidious disease is a bio-induced transmissible meme agent.
