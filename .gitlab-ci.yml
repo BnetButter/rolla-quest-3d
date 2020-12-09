@@ -1,0 +1,16 @@
+image: python:latest
+
+generaltester:
+  script:
+  - pip3 install python-Levenshtein mypy black py2cfg
+  - apt-get update
+  - apt-get -y install cppcheck clang-format cmake make shellcheck wget
+  - wget -O shfmt https://github.com/mvdan/sh/releases/download/v3.1.2/shfmt_v3.1.2_linux_amd64
+  - chmod +x ./shfmt
+  - bash grade.sh
+  timeout: 2 hours 30 minutes
+  artifacts:
+    when: always
+    paths:
+      - results.txt
+    expire_in: 1 month
