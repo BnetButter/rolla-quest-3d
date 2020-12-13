@@ -140,8 +140,9 @@ class GPU(collections.UserList):
         if os.getpid() == self._id:
             for child in self:
                 os.kill(child, signal.SIGINT)
-
+                os.waitpid(child, 0)
             self._raster_buff.close()
             self._raster_buff.unlink()
             self._vram.close()
             self._vram.unlink()
+
