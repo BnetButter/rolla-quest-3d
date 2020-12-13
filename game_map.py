@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+from io import TextIOWrapper
 import time
 import random
 import math
@@ -9,14 +10,41 @@ from collections import defaultdict
 import characters
 import rq_utils
 from rq_utils import KEY_DICT
+import ctypes
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Map:
+    _REPLACE = {
+        '▄','▐', "█",
+    }
+    WALL_CHAR = {'|'}
+    BOUND_CHAR = {'W'}
+    REPR_CHAR = {
+        'S':[240, 255, 0],
+        'V':[128, 128, 128],
+        'C':[255, 0, 0],
+        '0':[128, 128, 128],
+        'M':[0, 247, 255],
+    }
+    
     def __init__(self, map_file_name: str) -> None:
         self.chunk_rows, self.chunk_cols = rq_utils.get_chunk_size()
         self.chunks, self.lines = Map.get_campus_map(
             map_file_name, self.chunk_rows, self.chunk_cols
         )
+        # Read only copy
+        self.protomap = Map.get_campus_map_no_chunk(map_file_name)
+        m_h, m_w = len(self.protomap), len(self.protomap[0])
+        assert all(len(row) == m_w for row in self.protomap)
+        self.width, self.height = m_w, m_h
+        self.size = m_h * m_w
+        # typedef uint8_t Cols[m_w];
+        self.Row = ctypes.c_uint8 * m_w
+        # typedef Cols Rows[m_h];
+        self.ByteMap = self.Row * m_w
+
         start_row = 53
         start_col = 123
         self.player = characters.Player(start_row, start_col)
@@ -110,6 +138,25 @@ class Map:
             for j, row_part in enumerate(row_parts):
                 chunks[i // chunk_rows][j].append(row_part)
         return chunks, lines
+    
+    @staticmethod
+    def get_campus_map_no_chunk(map_file_name) -> Tuple:
+        with open(map_file_name) as fp:
+            data = fp.read()
+            for char in Map._REPLACE:
+                data = data.replace(char, '|')
+            
+            lines = data.split("\n")[:-1]
+            r = []
+            for line in lines:
+                l_int = []
+                for c in line:
+                    if ord(c) >= 256:
+                        print(c)
+                        exit(0)
+                    l_int.append(ord(c))
+                r.append(tuple(l_int))
+            return tuple(r)
 
     def process_move(self, entity: characters.Entity, char: str) -> bool:
         """
@@ -134,14 +181,17 @@ class Map:
         direction = moves[char]
         new_row = entity.row + direction[0]
         new_col = entity.col + direction[1]
-        if self.lines[new_row][new_col] == " ":
+        if (self.lines[new_row][new_col] not in self._REPLACE
+                and self.lines[new_row][new_col] not in self.BOUND_CHAR
+                and self.lines[new_row][new_col] not in self.REPR_CHAR
+        ):
             entity.row = new_row
             entity.col = new_col
             return True
         else:
             return False
 
-    def move_all(self) -> bool:
+    def move_all(self, printafter=True) -> bool:
         """
         Purpose:    Updates every entity in the game,
                     and then prints out the state.
@@ -183,14 +233,18 @@ class Map:
         for entity in self.entities:
             if entity != self.player and entity.active:
                 if self.player.distance(entity) < entity.contact_dist():
-                    print("\033c" + str(entity))
                     entity.contact_player(self.player)
-                    time.sleep(3)
+                    logger.info(f"contact")
+                    if printafter:
+                        print("\033c" + str(entity))
+                        time.sleep(3)
+
         # Remove any deactivated entities
         self.entities = [entity for entity in self.entities if entity.active]
         if self.player.check_for_game_ended():
             return False
-        self.pretty_print()
+        if printafter:
+            self.pretty_print()
         return True
 
     def get_chunk(self, row: int, col: int) -> List[str]:
@@ -285,3 +339,18 @@ class Map:
         )
         padding = " " * (self.chunk_cols - len(exposure_str) - len(oracle_str))
         print(exposure_str + padding + oracle_str)
+
+    def byte_dump(self) -> bytearray:
+        # cast to mutable bytearrays     
+
+        bytes_list = [
+            bytearray(row) for row in self.protomap
+        ]
+        # load position
+        for entity in self.entities:
+            bytes_list[entity.row][entity.col] = ord(entity.repr_char)
+        
+        return bytearray(
+            self.ByteMap( # flatten
+                *[self.Row.from_buffer(row) for row in bytes_list]
+            ))
