@@ -191,7 +191,7 @@ class Map:
         else:
             return False
 
-    def move_all(self, printafter=True) -> bool:
+    def move_all(self) -> bool:
         """
         Purpose:    Updates every entity in the game,
                     and then prints out the state.
@@ -234,17 +234,15 @@ class Map:
             if entity != self.player and entity.active:
                 if self.player.distance(entity) < entity.contact_dist():
                     entity.contact_player(self.player)
-                    logger.info(f"contact")
-                    if printafter:
-                        print("\033c" + str(entity))
-                        time.sleep(3)
+                    logger.warn(f"contact")
+                    print("\033c" + str(entity))
 
         # Remove any deactivated entities
         self.entities = [entity for entity in self.entities if entity.active]
         if self.player.check_for_game_ended():
             return False
-        if printafter:
-            self.pretty_print()
+       
+        self.pretty_print()
         return True
 
     def get_chunk(self, row: int, col: int) -> List[str]:
@@ -330,7 +328,7 @@ class Map:
                 # replace with the corresponding char
                 for col in row_modifiers[idx]:
                     line_list[col] = row_modifiers[idx][col]
-            print("".join(line_list))
+            print("".join(reversed(line_list)))
         exposure_str = "Your exposure factor is {:.2f}".format(
             self.player.exposure_factor
         )
@@ -341,7 +339,7 @@ class Map:
         print(exposure_str + padding + oracle_str)
 
     def byte_dump(self) -> bytearray:
-        # cast to mutable bytearrays     
+        # cast to mutable bytearrays
 
         bytes_list = [
             bytearray(row) for row in self.protomap

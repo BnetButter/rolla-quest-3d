@@ -110,16 +110,15 @@ class GameWin(tk.Tk):
 
 class PlayerView(tk.Canvas, IOLock):
 
-    def __init__(self, *, res:Res = None, **kwargs):
+    def __init__(self, *, res:Res = None, render_scale=1, **kwargs):
         super().__init__(**kwargs)
         self._res = res
-        self["width"] = res.width
-        self["height"] = res.height
+        self.width = self["width"] = res.width * render_scale
+        self.height = self["height"] = res.height * render_scale
         self["bd"] = -2 # remove canvas border
-
         self._prev_img = tk.PhotoImage(
-            width=res.width,
-            height=res.height,
+            width=self.width,
+            height=self.height,
         )
         self._prev_cnv = self.create_image(
             (0, 0),
@@ -128,7 +127,8 @@ class PlayerView(tk.Canvas, IOLock):
         )
         self._on_motion: Callable[[tk.Canvas, tk.Event]] = self._default_handler
         self._flag = True
-        self._center = res.width // 2, res.height // 2
+        
+        self._center = self.width // 2, self.height // 2
         self.bind("<Motion>", self.handle_motion)
 
     @staticmethod
@@ -160,13 +160,11 @@ class PlayerView(tk.Canvas, IOLock):
         self.delete(self._prev_cnv)
         self.delete(self._prev_img)
 
-        if len(data) != self._res.size:
-            data[:self._res.size] = bytearray([0 for _ in range(self._res.size)])
         img = self._prev_img = tk.PhotoImage(
-            data=b"P6\n%d %d\n255\n%s" % (self._res.width, self._res.height, data)
+            data=b"P6\n%d %d\n255\n%s" % (self.width, self.height, data)
         )
         self._prev_cnv = self.create_image(
-            (self._res.width // 2, self._res.height // 2),
+            self._center,
             image=img,
             state="normal"
         )

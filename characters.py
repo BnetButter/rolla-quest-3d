@@ -56,8 +56,9 @@ class Entity:
         pass
 
     def move(self) -> str:
-        pass
-
+        return random.choice([
+            m for m in KEY_DICT.values()
+        ])
 
 class Mask(Entity):
     repr_char = "M"
@@ -83,7 +84,7 @@ class Mask(Entity):
         Modifies:   nothing
         Calls:      random.choice
         """
-        pass
+        return super().move()
 
     def __str__(self) -> str:
         mask_material = random.choice(
@@ -128,7 +129,7 @@ class PoliceDrone(Entity):
         Calls:      standard python, random.choice,
                     self._move_to_follow, self.distance
         """
-        pass
+        return super().move()
 
     def __str__(self) -> str:
         return "PoliceDrone says: " + random.choice(
@@ -165,7 +166,7 @@ class AntiCipher(Entity):
         Calls:      standard python, random.choice,
                     self._move_to_follow, self.distance
         """
-        pass
+        return super().move()
 
     def __str__(self) -> str:
         return "AntiCipher says: " + random.choice(
@@ -207,7 +208,7 @@ class AdminSmith(Entity):
         Calls:      standard python, random.choice,
                     self._move_to_follow, self.distance
         """
-        pass
+        return super().move()
 
     def __str__(self) -> str:
         return "AdminSmith says: " + random.choice(
@@ -363,15 +364,9 @@ class Player(Entity):
         print("Your COVID exposure factor has increased.")
 
     def move(self) -> str:
-        char = ""
-        while char not in [
-            KEY_DICT["up"],
-            KEY_DICT["left"],
-            KEY_DICT["down"],
-            KEY_DICT["right"],
-        ]:
-            char = rq_utils.getch()
-        return char
+        return ""
+        
+        
 
     def check_for_game_ended(self) -> bool:
         if self.exposure_factor > 1:

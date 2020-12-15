@@ -8,7 +8,7 @@ import tkinter as tk
 import tk_io
 import game_io
 from game_io import Button, EventPlayer, user_event_player
-from lib_rq import RenderEngine, Camera
+from lib_rq import RenderEngine, Camera, _update_game
 import asyncio
 import ctypes
 import functools
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 RES = Res.R256x144
 user_res: Res = None
 user_dev: bool = None
-user_x_sens: float = 0.5
-user_y_sens: float = 0.5
+user_x_sens: float = 0.25
+user_y_sens: float = 0.25
 root_win: tk_io.GameWin = None
 
 
@@ -36,17 +36,17 @@ def xset_shield(fn):
 
 
 def mouse_motion(event_player, vp: tk_io.PlayerView, event):
-    center_x = vp.winfo_width() // 2
-    center_y = vp.winfo_height() // 2
+    center_x = vp.winfo_width() / 2
+    center_y = vp.winfo_height() / 2
+    dx = (event.x - center_x) * user_x_sens
+    event_player.facing_direction[0] += math.radians(dx)
+    dy = event_player.facing_direction[1] + math.radians(
+        (event.y - center_y) * user_y_sens
+    )
+    if abs(dy) < (math.pi / 4):
+        event_player.facing_direction[1] = dy
 
-    dx = event.x - center_x
-    event_player.facing_direction[0] += math.radians(dx * user_x_sens)
-    
-    dy = event.y - center_y
-    
-    y = event_player.facing_direction[1] + math.radians(dy * user_y_sens)
-    if abs(y) < (math.pi / 4):
-        event_player.facing_direction[1] = y
+RENDER_SCALE = 2
 
 def main(
     map: Map,
@@ -65,6 +65,7 @@ def main(
     win.geometry(str(RES))
     if not dev:
         _get_user_options()
+        logconf = "logging.json"
     else:
         user_res = Res.R640x360
     
@@ -120,6 +121,7 @@ def main(
 
     viewport.on_motion = functools.partial(mouse_motion, event_player)
 
+    _update_game()
     def arguments(buf: bytearray):
         return (
             Camera.from_buffer(buf),
@@ -130,6 +132,7 @@ def main(
             ncores, 
             camera_size + map_size,
             arguments,
+            RENDER_SCALE,
     ) as gpu:
         timer = tk_io.loop_time()
         data_in, data_out = bytearray(), bytearray()
@@ -148,7 +151,7 @@ def main(
         
         async def print_loop():
             while True:
-                map.pretty_print()
+                map.move_all()
                 await asyncio.sleep(1/30)
 
         loop = asyncio.get_event_loop()
@@ -214,8 +217,8 @@ def _init_game_ui():
     )
     viewport_outer = tk.Frame(
         master=viewport_container,
-        width=user_res.width,
-        height=user_res.height,
+        width=user_res.width * RENDER_SCALE,
+        height=user_res.height * RENDER_SCALE,
     )
     menu = tk_io.GameMenu(
         master=viewport_outer,
@@ -225,12 +228,13 @@ def _init_game_ui():
     
     w, h = menu.winfo_width(), menu.winfo_height(),
     menu.place(
-        x=user_res.width // 2 - w // 2,
-        y=user_res.height // 2 - h // 2,
+        x=(user_res.width * RENDER_SCALE) // 2 - w // 2,
+        y=(user_res.height * RENDER_SCALE)// 2 - h // 2,
     )
     viewport = tk_io.PlayerView(
         master=viewport_outer,
         res=user_res,
+        render_scale = RENDER_SCALE,
     )
     compass.grid(
         row=0,
@@ -441,5 +445,5 @@ if __name__ == "__main__":
         default=8,
     )
     optarg = parser.parse_args()
-    main(game_map.Map("maps/mst_campus.txt"), **optarg.__dict__)
+    main(game_map.Map("maps/reversed_mst_campus.txt"), **optarg.__dict__)
 

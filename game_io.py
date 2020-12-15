@@ -50,6 +50,7 @@ class EventPlayer:
     enabled_buttons: int = 0
     entity: Entity
     velocity: float
+    id:int = 0
 
     def __init__(self, entity=None, map=None):
         self._on_next: Callable[[EventPlayer, tk.Event], None]
@@ -63,12 +64,22 @@ class EventPlayer:
         self.held_buttons = 0
         self.entity = entity
         self.velocity = 0.5
+        self.id = type(self).id
+        type(self).id += 1
         buttons = list(Button)
         for bt in buttons:
             self.enabled_buttons |= bt
-        
         self.map = map
-    
+        loop = asyncio.get_event_loop()
+        if entity is not None:
+            self.syncdown()
+            for fn in lib_rq.scripted_events[lib_rq.OngoingEachPlayer]:
+                loop.create_task(fn(entity))
+
+    @property
+    def repr_char(self):
+        return self.entity.repr_char
+
     @property
     def col(self):
         return int(self.position[0]) 
@@ -129,6 +140,11 @@ class EventPlayer:
 
     def bind(self, entity: Entity):
         self.entity = entity
+        self.syncdown()
+        loop = asyncio.get_event_loop()
+        for fn in lib_rq.scripted_events[lib_rq.OngoingEachPlayer]:
+            loop.create_task(fn(self))
+    
 
     def start_forcing_throttle(self, throttle):
         self._throttle_forced = True
@@ -139,8 +155,8 @@ class EventPlayer:
         self._throttle_forced = False
 
     def is_button_held(self, button: Button):
-        return bool(self.held_buttons & (button))
-    
+        return bool(self.held_buttons & button)
+        
     def set_throttle(self, index, value):
         if self._throttle_forced:
             return

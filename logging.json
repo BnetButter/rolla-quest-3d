@@ -11,13 +11,13 @@
     },
     "loggers": {
         "game_io": {
-            "level": "DEBUG"
+            "level": "WARN"
         },
         "tk_io": {
             "level": "INFO"
         },
         "rq_engine": {
-            "level": "DEBUG"
+            "level": "INFO"
         },
         "lib_rq": {
             "level": "WARN"

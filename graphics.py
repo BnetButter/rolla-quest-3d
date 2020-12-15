@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 BYTES_PER_PIX = 3
 
 class Res(enum.Enum):
+    R128x72 = (128, 72)
     R256x144 = (256, 144)
     R640x360 = (640, 360)
     R1920x1080 = (1920,1080)
@@ -47,7 +48,8 @@ class GPU(collections.UserList):
         resolution: Res,
         core_count: int,
         vram_size: int,
-        arg_factory: Callable[[bytearray], None]
+        arg_factory: Callable[[bytearray], None],
+        renderscale: int,
     ):
         super().__init__()
         self.arg_factory = arg_factory
@@ -61,7 +63,9 @@ class GPU(collections.UserList):
         self.width = resolution.width
         self.height = resolution.height
         self.block_X = self.width // self.cores
-        
+        self.render_width = resolution.width * renderscale
+        self.render_height = resolution.height * renderscale
+        self.renderscale = renderscale
 
         
     def __call__(self, b_in: bytearray, b_out: bytearray):
@@ -74,7 +78,7 @@ class GPU(collections.UserList):
             self._cond.notify_all()
         
         with self._value_cond:
-            self._value_cond.wait(timeout=0.05)
+            self._value_cond.wait(timeout=0.1)
             b_out[:self._raster_buff.size] = self._raster_buff.buf
 
     @abc.abstractmethod
@@ -84,7 +88,7 @@ class GPU(collections.UserList):
     def __enter__(self):
         self._raster_buff = SharedMemory(
             create=True,
-            size=self._resolution.height * self._resolution.width * 3,
+            size=self.render_height * self.render_width * BYTES_PER_PIX
         )
         self._vram = SharedMemory(
             create=True,
