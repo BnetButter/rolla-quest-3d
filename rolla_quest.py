@@ -29,9 +29,13 @@ Welcome to Rolla Quest III: The Zoom, Re-infected
 Controls:
     Move: WASD,
     Look: Mouse,
-    Sprint: Shift,
-"""
-)
+    
+    Sprint: Ability 1
+        Move fast
+
+    Hack drone: Ability 3
+        Temporarily take control of the nearest PoliceDrone entity
+""")
 
 @lib_rq.OngoingGlobal()
 def move_all(map: game_map.Map):
@@ -97,7 +101,7 @@ def hack_drone(player):
     )
     lib_rq.Camera.bind(nearest_drone.event_player)
     yield from lib_rq.wait(10)
-
+    
     lib_rq.Camera.bind(player)
     yield from lib_rq.wait(10)
 
