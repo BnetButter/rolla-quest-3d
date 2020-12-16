@@ -313,7 +313,6 @@ class Map:
         """
         print("\033c")
         player = self.get_camera_player()
-        print(player)
         chunk = self.get_chunk(player.row, player.col)
         # row_modifiers: Dict[int, List[Tuple[int, str]]] = {}
         row_modifiers: Dict[int, Dict[int, str]] = defaultdict(dict)
