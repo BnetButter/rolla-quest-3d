@@ -199,7 +199,41 @@ class PlayerStat(tk.Frame):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._placeholder = tk.Label(master=self, text="Player Stat")
-        self._placeholder.pack(expand=True)
+        self._placeholder.pack(expand=True, side=tk.LEFT)
+
+        self._ability_name_vars = [
+            ab1_n := tk.StringVar(self),
+            ab2_n := tk.StringVar(self),
+            ab3_n := tk.StringVar(self),
+        ]
+        self._ability_cooldown_vars = [
+            ab1_cd := tk.IntVar(self),
+            ab2_cd := tk.IntVar(self),
+            ab3_cd := tk.IntVar(self),
+        ]
+        
+        # Placeholders
+        ab1_n.set("AB1")
+        ab2_n.set("AB2")
+        ab3_n.set("AB3")
+        
+        self._ability_1 = tk.Label(self, 
+            textvariable=ab1_n,
+            relief=tk.RAISED
+        )
+        self._ability_2 = tk.Label(self,
+            textvariable=ab2_n,
+            relief=tk.RAISED
+        )
+        self._ability_3 = tk.Label(self,
+            textvariable=ab3_n,
+            relief=tk.RAISED
+        )
+        
+        self._ability_3.pack(side=tk.LEFT, expand=True)
+        self._ability_2.pack(side=tk.RIGHT, expand=True)
+        self._ability_1.pack(side=tk.RIGHT, expand=True)
+
 
 
 class PlayerCompass(tk.Frame):
@@ -289,7 +323,6 @@ class GameMenu(tk.Frame):
         exit(0)
 
     topwin = None
-
     def _help(self):
         if self.topwin is None:
             self.topwin = tk.Toplevel(self)
@@ -305,7 +338,6 @@ class GameMenu(tk.Frame):
             help_text.pack()
 
     def _reload(self):
-        import sys, os
         root_win().destroy(reload=True)
 
 

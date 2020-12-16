@@ -69,10 +69,7 @@ def init_game_ui():
     root_win = tk_io.root_win()
     root_win.geometry("") # enable auto resize of window
     opt = user_options()
-
-    
     wh, hh = opt.res.width * opt.renderscale, opt.res.height * opt.renderscale
-
     viewport_container = tk.Frame(
         width=wh,
         height=hh,
@@ -124,9 +121,10 @@ def init_game_ui():
     )
     viewport.place(x=0, y=0)
     stat.grid(
-        row=1,
+        row=4,
         column=0,
-        sticky="nw"
+        columnspan=3,
+        sticky="we",
     )
     stat.lift()
     viewport_container.grid(
