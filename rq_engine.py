@@ -2,28 +2,55 @@ import math
 from game_map import Map
 import os
 import logging.config, logging
-from typing import Callable
+from typing import Callable, TYPE_CHECKING, Tuple
 from graphics import Res
 import tkinter as tk
 import tk_io
-import game_io
-from game_io import Button, EventPlayer, user_event_player
-from lib_rq import RenderEngine, Camera, _update_game
+from game_io import EventPlayer
 import asyncio
 import ctypes
-import functools
-
-
-
+import rq_ui
+from graphics import GPU, BYTES_PER_PIX
+from ctypes import (
+    c_float,
+    c_uint8,
+    c_uint16
+)
 logger = logging.getLogger(__name__)
 RES = Res.R256x144
-user_res: Res = None
-user_dev: bool = None
-user_x_sens: float = 0.25
-user_y_sens: float = 0.25
-root_win: tk_io.GameWin = None
+opts = rq_ui.user_options()
+
+if TYPE_CHECKING:
+    from lib_rq import Camera
+class Sprite:
+    """Render vertical columns"""
+
+    def __init__(self, repr_char, color=[0, 0, 0], h0=1.0, h1=1.0):
+        self.repr_char = repr_char
+        self.color = color
+
+        # First line beneath horizon
+        self.h0: float = h0
+        # second line
+        self.h1: float = h1
+        # relative height relative to screen when object's distance is 0
+        self.relH = 0
+
+    def adjusted_color(self, percfloat):
+        """Apply grey scale"""
+        return bytearray(int(x * percfloat) for x in self.color)
 
 
+sprites = {
+    "M": Sprite("M", [0, 247, 255]),
+    "V": Sprite("V", [128, 128, 128]),
+    "C": Sprite("C", [255, 0, 0], h0=1.0),
+    "0": Sprite("0", [128, 128, 128]),
+    "M": Sprite("M", [0, 247, 255]),
+    "G": Sprite("G", [0, 255, 0]),
+    "1": Sprite("1", [255, 171,0]),
+    "P": Sprite("1", [0, 0, 255])
+}
 def xset_shield(fn):
     def inner(*args, **kwargs):
         try:
@@ -34,20 +61,9 @@ def xset_shield(fn):
             os.system("xset r on")
     return inner
 
-
-def mouse_motion(event_player, vp: tk_io.PlayerView, event):
-    center_x = vp.winfo_width() / 2
-    center_y = vp.winfo_height() / 2
-    dx = (event.x - center_x) * user_x_sens
-    event_player.facing_direction[0] += math.radians(dx)
-    dy = event_player.facing_direction[1] + math.radians(
-        (event.y - center_y) * user_y_sens
-    )
-    if abs(dy) < (math.pi / 4):
-        event_player.facing_direction[1] = dy
-
 RENDER_SCALE = 2
 
+@xset_shield
 def main(
     map: Map,
     dev=False, # Set to True to bypass option menu
@@ -55,21 +71,28 @@ def main(
     ncores=8,
     player=None
 ):
-    global root_win, user_res, user_dev
-    event_player = game_io.user_event_player(map=map)
-    event_player.bind(map.player if player is None else player)
-    event_player.syncdown()
-    Camera.bind(event_player)
+    from lib_rq import Camera
+    import lib_rq
+    
+    opts = rq_ui.user_options()
+    opts.dev = dev
+    opts.logconf = logconf if logconf is not None else opts.logconf
+    opts.ncores = ncores
+    opts.renderscale = RENDER_SCALE
 
-    root_win = win = tk_io.GameWin(className=" ")
+    players = [EventPlayer(entity, map=map) for entity in map.entities]
+
+    Camera.bind(players[0])
+
+    win = tk_io.GameWin(className=" ")
     win.geometry(str(RES))
     if not dev:
-        _get_user_options()
-        logconf = "logging.json"
+        rq_ui.get_user_options()
+       
     else:
-        user_res = Res.R640x360
-    
-    viewport = _init_game_ui(); _bind_keys(viewport)
+        opts.res = Res.R640x360
+
+    viewport = rq_ui.init_game_ui(); rq_ui.bind_keys(viewport, Camera)
     frame_time = tk.DoubleVar()
     evp_x = tk.DoubleVar()
     evp_y = tk.DoubleVar()
@@ -79,18 +102,18 @@ def main(
     evp_fy = tk.DoubleVar()
     evp_fz = tk.DoubleVar()
 
-    set_attrs = lambda evp: (
-        evp_x.set(evp.position[0]),
-        evp_y.set(evp.position[1]),
-        evp_z.set(evp.position[2]),
+    set_vars = lambda: (
+        evp_x.set(Camera.POSITION[0]),
+        evp_y.set(Camera.POSITION[1]),
+        evp_z.set(Camera.POSITION[2]),
         evp_r0.set(map.player.exposure_factor),
-        evp_fx.set(int(math.degrees(evp.facing_direction[0])) % 360),
-        evp_fy.set(int(math.degrees(evp.facing_direction[1])) % 360),
-        evp_fz.set(int(math.degrees(evp.facing_direction[2])) % 360),
+        evp_fx.set(int(math.degrees(Camera.FACING[0])) % 360),
+        evp_fy.set(int(math.degrees(Camera.FACING[1])) % 360),
+        evp_fz.set(int(math.degrees(Camera.FACING[2])) % 360),
     )
            
     # Init the dev ui but don't show it unless user_dev flag is set
-    grid_dev = _init_dev_ui(
+    grid_dev = rq_ui.init_dev_ui(
         "%(levelname)-8s %(asctime)s - %(message)s",
         variables=[
             (frame_time, "Frame Time"),
@@ -103,14 +126,15 @@ def main(
             (evp_r0, "~HP  | r0"),
         ]
     )
-    if user_dev or dev:
+    if opts.dev:
         grid_dev()
+    
     _init_logging(
         ("__main__", logging.DEBUG),
         ("game_io", logging.DEBUG),
         ("tk_io", logging.DEBUG),
         ("graphics", logging.DEBUG),
-        logconf=logconf,
+        logconf=opts.logconf,
     )
    
     # lock mouse to center, enable io handlers
@@ -119,188 +143,165 @@ def main(
     camera_size = ctypes.sizeof(Camera)
     map_size = ctypes.sizeof(map.ByteMap)
 
-    viewport.on_motion = functools.partial(mouse_motion, event_player)
+    viewport.on_motion = Camera.mouse_motion
 
-    _update_game()
+    lib_rq.init_global_event_scripts(map)
+    win.update()
     def arguments(buf: bytearray):
         return (
             Camera.from_buffer(buf),
             map.ByteMap.from_buffer(buf, camera_size),
         )
-    with RenderEngine(
-            user_res,
-            ncores, 
-            camera_size + map_size,
-            arguments,
-            RENDER_SCALE,
-    ) as gpu:
-        timer = tk_io.loop_time()
-        data_in, data_out = bytearray(), bytearray()
-        
-        def render():
-            frame_time.set(timer())
-            set_attrs(user_event_player())
-
-            # sync so map.pretty_print shows upated position
-            game_io.user_event_player().syncup()
-            data = map.byte_dump()
-            data_in[:camera_size] = bytearray(Camera())
-            data_in[camera_size:camera_size + map_size] = data
-            gpu(data_in, data_out)
-            viewport.draw(data_out)
-        
-        async def print_loop():
-            while True:
-                map.move_all()
-                await asyncio.sleep(1/30)
-
-        loop = asyncio.get_event_loop()
-        loop.create_task(print_loop())
-        loop.create_task(event_player.move(map))
-        win.mainloop(render)
-
-def _get_user_options():
-    """Initialize menu for user to select options"""
-    resolutions = list(Res)
-    frame = tk_io.MenuWin()
-    res_menu = tk.OptionMenu(
-        frame,
-        optvar := tk.StringVar(),
-        *resolutions,
-    )
-    tk.Label(master=frame, text="Rolla Quest 3D", font=(20)).pack(
-        pady=5
-    )
-    def set_user_res(dev):
-        global user_res
-        global user_dev
-        user_dev = dev
-        user_res = {
-            str(r): r for r in Res
-        }.get(optvar.get(), RES)
-        frame.destroy()
     
-    bt_frame = tk.Frame(frame)
-    bt_start = tk.Button(
-        master=bt_frame,
-        text=" START ",
-        command=lambda: set_user_res(False)
-    )
-    bt_dev = tk.Button(
-        master=bt_frame,
-        text="dev",
-        command=lambda: set_user_res(True)
-    )
-    bt_start.pack(side=tk.LEFT, fill=tk.X)
-    bt_dev.pack(side=tk.LEFT)
-    res_menu.pack(expand=True, fill=tk.BOTH)
-    bt_frame.pack(expand=True, fill=tk.BOTH)
-    optvar.set(list(Res)[0])
-    frame.pack(expand=True)
-    frame.mainloop() # Block until user presses start
+    try:
+        with RenderEngine(
+                opts.res,
+                ncores, 
+                camera_size + map_size,
+                arguments,
+                opts.renderscale,
+        ) as gpu:
+            timer = tk_io.loop_time()
+            data_in, data_out = bytearray(), bytearray()
+            
+            def render():
+                frame_time.set(timer())
+                set_vars()
 
-def _init_game_ui():
-    root_win.geometry("") # enable auto resize of window
-    viewport_container = tk.Frame(
-        width=user_res.width,
-        height=user_res.height,
-    )
-    stat = tk_io.PlayerStat(
-        master=viewport_container,
-        borderwidth=1,
-        relief=tk.RIDGE
-    )
-    compass = tk_io.PlayerCompass(
-        master=viewport_container,
-        borderwidth=1,
-        relief=tk.RIDGE,
-    )
-    viewport_outer = tk.Frame(
-        master=viewport_container,
-        width=user_res.width * RENDER_SCALE,
-        height=user_res.height * RENDER_SCALE,
-    )
-    menu = tk_io.GameMenu(
-        master=viewport_outer,
-    )
-    menu.place(x=0, y=0)
-    root_win.update()    # calculates size
-    
-    w, h = menu.winfo_width(), menu.winfo_height(),
-    menu.place(
-        x=(user_res.width * RENDER_SCALE) // 2 - w // 2,
-        y=(user_res.height * RENDER_SCALE)// 2 - h // 2,
-    )
-    viewport = tk_io.PlayerView(
-        master=viewport_outer,
-        res=user_res,
-        render_scale = RENDER_SCALE,
-    )
-    compass.grid(
-        row=0,
-        column=0,
-        columnspan=3,
-        sticky="we",
-    )
-    viewport_outer.grid(
-        row=1,
-        rowspan=3,
-        column=0,
-        columnspan=3,
-        sticky="nswe"
-    )
-    viewport.place(x=0, y=0)
-    stat.grid(
-        row=1,
-        column=0,
-        sticky="nw"
-    )
-    stat.lift()
-    viewport_container.grid(
-        row=0,
-        column=1,
-        sticky="nswe",
-    )
-    def on_escape_1(event):
-        root_win.push_escape(on_escape_2)
-        # Show the menu, and release io lock
-        menu.lift()
-        viewport.release()
+                data = map.byte_dump()
+                data_in[:camera_size] = bytearray(Camera())
+                data_in[camera_size:camera_size + map_size] = data
+                gpu(data_in, data_out)
+                viewport.draw(data_out)
+            win.mainloop(render)
 
-    def on_escape_2(event):
-        root_win.push_escape(on_escape_1)
-        menu.lower()
-        viewport.acquire()
+    except lib_rq.ReloadEvent:
+        # Need to make sure the with statement above properly exits before
+        # restarting. Otherwise the shared memory never gets released
+        import os, sys
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
 
-    root_win.push_escape(on_escape_1)
-    return viewport
+# TODO sin/cos table and grey scale table
+def cos(r):
+    return math.cos(r)
 
 
-def _init_dev_ui(
-    fmt_str, *,
-    variables=[],
-) -> Callable[[], None]:
-    devinfo = tk_io.DevInfo(
-        variables=variables
-    )
-    logviewer = tk_io.TextHandler()
-    logviewer.setFormatter(logging.Formatter(fmt_str, "%H:%M:%S"))
-    rootlog = logging.getLogger()
-    rootlog.addHandler(logviewer)
+def sin(r):
+    return math.sin(r)
 
-    def grid_fn():
-        devinfo.grid(
-            row=0,
-            column=0,
-            sticky="nswe"
+
+GREY_SCALE = [bytearray([x, x, x]) for x in [200, 175, 150, 125, 100, 75, 50, 25, 10]]
+D_SCALE = 10
+GROUND_COLOR = [63, 166, 90]
+SKY_COLOR = [79, 217, 245]
+
+
+def squash(x):
+    return x / (x + 1)
+
+
+class RenderEngine(GPU):
+    def get_apparent_height(self, scale, dist):
+        return ((self.height / (2 * math.pi * (dist + 1))) * 360) // 2
+
+    def get_pixel_offset(self, row, col):
+        return (row * self.width * BYTES_PER_PIX * self.renderscale) + (
+            col * BYTES_PER_PIX * self.renderscale
         )
-        logviewer.grid(
-            row=2,
-            column=0,
-            columnspan=3,
-            sticky="nswe",
+
+    def device(self, idx: int, b_in: bytearray, b_out: bytearray):
+        """
+        idx: core index
+        in: input data
+        out: output data
+        """
+        # Process 1/ncores of the screen in parallel. Read in bytes, do math
+        # write results to shared memory
+
+        camera: Camera
+        camera, map = self.arg_factory(b_in)
+
+        radians_per_pixel = math.radians(camera.fov) / self.width
+        radian_offset = math.radians(camera.fov / 2) + math.radians(90 - camera.fov)
+        facing_offset = camera.facing[0]
+        start, end = self.block_X * idx, self.block_X * (idx + 1)
+
+        c_x, c_y, c_z = camera.position[0], camera.position[1], camera.position[2]
+        f_y = camera.facing[1]
+
+        dist_to = [
+            (ord(" "), 100, 0, bytearray([0, 0, 0])) for _ in range(self.block_X)
+        ]
+        # Y shearing. Move the world view up/down depending on y direction.
+        # Modeled as a camera rotating around the x axis.
+        mid_y = (self.height // 2) - (sin(f_y) * self.height)
+        # Create the illusion of parallax as the camera pitches up and down
+        cos_fy = cos(f_y)
+        # O(n) so not a big deal
+        for i in range(start, end):
+            radx = radians_per_pixel * i + radian_offset + facing_offset
+            for j in range(1, 100):
+                rc_x = j * sin(radx) + c_x
+                rc_y = j * cos(radx) + c_z
+                x, y = int(math.floor(rc_x)), int(math.floor(rc_y))
+                ch = chr(map[y][x])
+                # Pull in screen as camera pitches
+                dist = j * camera.dist * cos_fy
+                gs = squash(dist)
+                if ch in Map.BOUND_CHAR:
+                    dist_to[i - start] = (
+                        map[y][x],
+                        j,
+                        self.get_apparent_height(0.5, dist),
+                        GREY_SCALE[int(math.log(dist))],
+                    )
+                    break
+                elif ch in Map.WALL_CHAR:
+                    dist_to[i - start] = (
+                        map[y][x],
+                        j,
+                        self.get_apparent_height(1, dist),
+                        GREY_SCALE[int(math.log(dist))],
+                    )
+                    break
+                elif ch in sprites and map[y][x] !=  camera.repr_char:
+                    dist_to[i - start] = (
+                        map[y][x],
+                        j,
+                        self.get_apparent_height(1, dist),
+                        bytearray(int(gs * x) for x in sprites[ch].color),
+                    )
+                    break
+        # O(n^2). :(
+        for i in range(self.height):
+            for j, (ch, wall_dist, size, color) in enumerate(dist_to):
+                d = i - mid_y  # in pixels
+                dist_from_mid = abs(d)
+                gs = squash(dist_from_mid)
+                # Fake higher resolutions
+                for k in range(self.renderscale):
+                    off = self.get_pixel_offset(i * self.renderscale + k, j + start)
+                    # Draw sky, ground
+                    # This part can be optimized by drawing the entire scene before
+                    # entering this function. This way we only need to draw sprites
+                    if d > 0:
+                        self.set_color(
+                            b_out, off, bytearray(int(gs * x) for x in GROUND_COLOR)
+                        )
+                    else:
+                        self.set_color(
+                            b_out, off, bytearray(int(gs * x) for x in SKY_COLOR)
+                        )
+                    
+                    if dist_from_mid <= size:
+                        self.set_color(b_out, off, color)
+
+    def set_color(self, d_out, offset, color):
+        d_out[offset : offset + BYTES_PER_PIX * self.renderscale] = (
+            color * self.renderscale
         )
-    return grid_fn
+
 
 def _init_logging(*logname_level, logconf=None):
     if logconf is not None:
@@ -310,115 +311,6 @@ def _init_logging(*logname_level, logconf=None):
     else:
         for logname, level in logname_level:
             logging.getLogger(logname).setLevel(level)
-
-def _bind_keys(viewport: tk_io.IOLock):
-    keybinds = game_io.get_user_keybinds()
-    user_player = game_io.user_event_player()
-    up, down, left, right = keybinds["Movement"]
-    root_win.bind_key_press_release(
-        up,
-        lambda ev: user_player.set_throttle(2, 1),
-        lambda ev: user_player.set_throttle(2, 0),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        down,
-        lambda ev: user_player.set_throttle(2, -1),
-        lambda ev: user_player.set_throttle(2, 0),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        left,
-        lambda ev: user_player.set_throttle(0, -1),
-        lambda ev: user_player.set_throttle(0, 0),       
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        right,
-        lambda ev: user_player.set_throttle(0, 1),
-        lambda ev: user_player.set_throttle(0, 0),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.JUMP],
-        lambda ev: (
-            user_player.set_button(Button.JUMP, True),
-            user_player.set_throttle(1, 1)
-        ),
-        lambda ev:(
-            user_player.set_button(Button.JUMP, False),
-            user_player.set_throttle(1, 0)
-        ),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.CROUCH],
-        lambda ev: (
-            user_player.set_button(Button.CROUCH, True),
-            user_player.set_throttle(1, -1)
-        ),
-        lambda ev:(
-            user_player.set_button(Button.CROUCH, False),
-            user_player.set_throttle(1, 0)
-        ),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.ABILITY_1],
-        lambda ev: user_player.set_button(Button.ABILITY_1, True),
-        lambda ev: user_player.set_button(Button.ABILITY_1, False),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.ABILITY_2],
-        lambda ev: user_player.set_button(Button.ABILITY_2, True),
-        lambda ev: user_player.set_button(Button.ABILITY_2, False),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.ABILITY_3],
-        lambda ev: user_player.set_button(Button.ABILITY_3, True),
-        lambda ev: user_player.set_button(Button.ABILITY_3, False),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.INTERACT],
-        lambda ev: user_player.set_button(Button.INTERACT, True),
-        lambda ev: user_player.set_button(Button.INTERACT, False),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.PRIMARY_FIRE],
-        lambda ev: user_player.set_button(Button.PRIMARY_FIRE, True),
-        lambda ev: user_player.set_button(Button.PRIMARY_FIRE, False),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.SECONDARY_FIRE],
-        lambda ev: user_player.set_button(Button.SECONDARY_FIRE, True),
-        lambda ev: user_player.set_button(Button.SECONDARY_FIRE, False),  
-        viewport,   
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.RELOAD],
-        lambda ev: user_player.set_button(Button.RELOAD, True),
-        lambda ev: user_player.set_button(Button.RELOAD, False),
-        viewport,
-    )
-    root_win.bind_key_press_release(
-        keybinds[Button.MELEE],
-        lambda ev: user_player.set_button(Button.MELEE, True),
-        lambda ev: user_player.set_button(Button.MELEE, False),
-        viewport,
-    )
-    root_win.bind(
-        f"<{keybinds[Button.NEXT]}>",
-        viewport.protect(lambda ev: user_player.on_next(user_player, ev))
-    )
-    root_win.bind(
-        f"<{keybinds[Button.PREV]}>",
-        viewport.protect(lambda ev: user_player.on_prev(user_player, ev))
-    )
 
 
 

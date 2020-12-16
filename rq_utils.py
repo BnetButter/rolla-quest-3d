@@ -23,12 +23,7 @@ elif key_bind == "2":
     KEY_DICT = {"up": "k", "down": "j", "left": "h", "right": "l"}
 else:
     # arrows esc sequences
-    KEY_DICT = {
-        "up": "\033[A",
-        "down": "\033[B",
-        "left": "\033[D",
-        "right": "\033[C",
-    }
+    KEY_DICT = {"up": "\033[A", "down": "\033[B", "left": "\033[D", "right": "\033[C"}
 
 COLORS: Dict[str, str] = {
     "mst_green": "\033[38;5;28m",

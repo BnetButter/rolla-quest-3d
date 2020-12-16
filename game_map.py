@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from io import TextIOWrapper
 import time
 import random
 import math
@@ -15,20 +14,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Map:
-    _REPLACE = {
-        '▄','▐', "█",
-    }
-    WALL_CHAR = {'|'}
-    BOUND_CHAR = {'W'}
+    _REPLACE = {"▄", "▐", "█"}
+    WALL_CHAR = {"|"}
+    BOUND_CHAR = {"W"}
     REPR_CHAR = {
-        'S':[240, 255, 0],
-        'V':[128, 128, 128],
-        'C':[255, 0, 0],
-        '0':[128, 128, 128],
-        'M':[0, 247, 255],
+        "S": [240, 255, 0],
+        "V": [128, 128, 128],
+        "C": [255, 0, 0],
+        "0": [128, 128, 128],
+        "M": [0, 247, 255],
     }
-    
+
     def __init__(self, map_file_name: str) -> None:
         self.chunk_rows, self.chunk_cols = rq_utils.get_chunk_size()
         self.chunks, self.lines = Map.get_campus_map(
@@ -50,7 +48,9 @@ class Map:
         self.player = characters.Player(start_row, start_col)
         self.entities: List[characters.Entity] = [self.player]
         self.populate()
-        self.pretty_print()
+        
+        import lib_rq
+        self.get_camera_player = lib_rq.Camera.bound_entity
 
     def populate(self) -> None:
         """
@@ -138,14 +138,14 @@ class Map:
             for j, row_part in enumerate(row_parts):
                 chunks[i // chunk_rows][j].append(row_part)
         return chunks, lines
-    
+
     @staticmethod
     def get_campus_map_no_chunk(map_file_name) -> Tuple:
         with open(map_file_name) as fp:
             data = fp.read()
             for char in Map._REPLACE:
-                data = data.replace(char, '|')
-            
+                data = data.replace(char, "|")
+
             lines = data.split("\n")[:-1]
             r = []
             for line in lines:
@@ -181,9 +181,10 @@ class Map:
         direction = moves[char]
         new_row = entity.row + direction[0]
         new_col = entity.col + direction[1]
-        if (self.lines[new_row][new_col] not in self._REPLACE
-                and self.lines[new_row][new_col] not in self.BOUND_CHAR
-                and self.lines[new_row][new_col] not in self.REPR_CHAR
+        if (
+            self.lines[new_row][new_col] not in self._REPLACE
+            and self.lines[new_row][new_col] not in self.BOUND_CHAR
+            and self.lines[new_row][new_col] not in self.REPR_CHAR
         ):
             entity.row = new_row
             entity.col = new_col
@@ -211,14 +212,13 @@ class Map:
                     pretty_print()
         """
         for entity in self.entities:
-            move = entity.move()
-            if move:
-                # Randomize the move to avoid making things too difficult and
-                # to avoid stuff getting stuck on walls
-                # This is a bit messy, but it becomes much harder to test the
-                # student-written move functions
-                # if there's nontrivial randomization
-                if entity != self.player:
+            if entity != self.player and self.get_camera_player().entity != entity:
+                if (move := entity.move()):
+                    # Randomize the move to avoid making things too difficult and
+                    # to avoid stuff getting stuck on walls
+                    # This is a bit messy, but it becomes much harder to test the
+                    # student-written move functions
+                    # if there's nontrivial randomization
                     random_move = random.choice(
                         [
                             KEY_DICT["up"],
@@ -227,8 +227,11 @@ class Map:
                             KEY_DICT["right"],
                         ]
                     )
-                    move = random.choice([move, random_move])
-                self.process_move(entity, move)
+                    
+                    if not self.process_move(entity, move):
+                        move = random_move
+                    else:
+                        self.process_move(entity, move)
         # Check proximity
         for entity in self.entities:
             if entity != self.player and entity.active:
@@ -241,7 +244,7 @@ class Map:
         self.entities = [entity for entity in self.entities if entity.active]
         if self.player.check_for_game_ended():
             return False
-       
+
         self.pretty_print()
         return True
 
@@ -309,11 +312,13 @@ class Map:
                     get_entities_in_same_chunk(), entity's char() function
         """
         print("\033c")
-        chunk = self.get_chunk(self.player.row, self.player.col)
-        chunk_row, chunk_col = self.get_chunk_idxs(self.player.row, self.player.col)
+        player = self.get_camera_player()
+        print(player)
+        chunk = self.get_chunk(player.row, player.col)
         # row_modifiers: Dict[int, List[Tuple[int, str]]] = {}
         row_modifiers: Dict[int, Dict[int, str]] = defaultdict(dict)
-        for entity in self.get_entities_in_same_chunk(self.player.row, self.player.col):
+        
+        for entity in self.get_entities_in_same_chunk(player.row, player.col):
             # For each entity in the current chunk, place it in a dict keyed on
             # the row and store the column and character
             i, j = self.get_chunk_idxs(entity.row, entity.col)
@@ -341,14 +346,11 @@ class Map:
     def byte_dump(self) -> bytearray:
         # cast to mutable bytearrays
 
-        bytes_list = [
-            bytearray(row) for row in self.protomap
-        ]
+        bytes_list = [bytearray(row) for row in self.protomap]
         # load position
         for entity in self.entities:
             bytes_list[entity.row][entity.col] = ord(entity.repr_char)
-        
+
         return bytearray(
-            self.ByteMap( # flatten
-                *[self.Row.from_buffer(row) for row in bytes_list]
-            ))
+            self.ByteMap(*[self.Row.from_buffer(row) for row in bytes_list])  # flatten
+        )

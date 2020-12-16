@@ -7,6 +7,7 @@ import random
 import rq_utils
 from rq_utils import KEY_DICT
 import ascii_art
+import collections
 
 
 class Entity:
@@ -17,11 +18,16 @@ class Entity:
         self.row = row
         self.col = col
         self.active = True
+        self.move_queue = collections.deque()
 
     def char(self) -> str:
         return (" ", rq_utils.COLORS[self.color] + self.repr_char + "\033[0m")[
             self.active
         ]
+    
+    @property
+    def camera_bound(self):
+        return self.event_player.camer_bound
 
     def contact_dist(self) -> int:
         pass
@@ -54,11 +60,24 @@ class Entity:
         Calls:      standard python
         """
         pass
+    
+    def move_up(self):
+        self.move_queue.append(KEY_DICT["up"])
+    
+    def move_down(self):
+        self.move_queue.append(KEY_DICT["down"])
+    
+    def move_left(self):
+        self.move_queue.append(KEY_DICT["left"])
+    
+    def move_right(self):
+        self.move_queue.append(KEY_DICT["right"])
 
     def move(self) -> str:
-        return random.choice([
-            m for m in KEY_DICT.values()
-        ])
+        if self.move_queue:
+            return self.move_queue.popleft()
+        return random.choice([m for m in KEY_DICT.values()])
+
 
 class Mask(Entity):
     repr_char = "M"
@@ -320,6 +339,9 @@ class VaccineDrive(Entity):
 
     def contact_dist(self) -> int:
         return 1
+    
+    def move(self):
+        pass
 
     def contact_player(self, player: "Player") -> None:
         print("You have acquired the advanced meme-drive vaccine plans.")
@@ -365,8 +387,6 @@ class Player(Entity):
 
     def move(self) -> str:
         return ""
-        
-        
 
     def check_for_game_ended(self) -> bool:
         if self.exposure_factor > 1:
@@ -380,4 +400,3 @@ class Player(Entity):
             print(ascii_art.cat)
             return True
         return False
-

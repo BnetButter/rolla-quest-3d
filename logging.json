@@ -14,7 +14,7 @@
             "level": "WARN"
         },
         "tk_io": {
-            "level": "INFO"
+            "level": "WARN"
         },
         "rq_engine": {
             "level": "INFO"
@@ -23,7 +23,7 @@
             "level": "WARN"
         },
         "__main__": {
-            "level": "DEBUG"
+            "level": "INFO"
         },
         "asyncio": {
             "level": "INFO"
