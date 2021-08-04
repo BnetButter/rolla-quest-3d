@@ -1,3 +1,11 @@
+# Rolla Quest 3D
+[More info here](https://lai.git-pages.mst.edu/lai/projects/rolla-quest-3d/rolla-quest-3d.html)
+
+<img src="https://i.imgur.com/wIJZKyI.gif">
+
+The original assignment below... 
+
+
 ## CS 1500 Final Project - Rolla Quest III: The Zoom, Re-infected
 
 <img src="joke-anti-virus.jpg" alt="drawing" width="200"/>
